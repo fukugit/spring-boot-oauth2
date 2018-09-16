@@ -1,1 +1,20 @@
-spring.thymeleaf.cache: false
+security:
+  oauth2:
+    client:
+      clientId: XXXX
+      clientSecret: XXX
+      accessTokenUri: https://github.com/login/oauth/access_token
+      userAuthorizationUri: https://github.com/login/oauth/authorize
+      clientAuthenticationScheme: form
+    resource:
+      userInfoUri: https://api.github.com/user
+      
+github:
+  client:
+    clientId: XXX
+    clientSecret: XXX
+    accessTokenUri: https://github.com/login/oauth/access_token
+    userAuthorizationUri: https://github.com/login/oauth/authorize
+    clientAuthenticationScheme: form
+  resource:
+    userInfoUri: https://api.github.com/user
