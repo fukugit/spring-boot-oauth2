@@ -26,6 +26,7 @@ import org.springframework.security.oauth2.client.OAuth2RestTemplate;
 import org.springframework.security.oauth2.client.filter.OAuth2ClientAuthenticationProcessingFilter;
 import org.springframework.security.oauth2.client.filter.OAuth2ClientContextFilter;
 import org.springframework.security.oauth2.client.token.grant.code.AuthorizationCodeResourceDetails;
+import org.springframework.security.oauth2.config.annotation.web.configuration.EnableOAuth2Client;
 import org.springframework.security.oauth2.config.annotation.web.configuration.EnableResourceServer;
 import org.springframework.security.oauth2.config.annotation.web.configuration.ResourceServerConfigurerAdapter;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
@@ -37,26 +38,65 @@ import org.springframework.web.filter.CompositeFilter;
 
 
 @SpringBootApplication
-@EnableOAuth2Sso
+@EnableOAuth2Client
 @RestController
 public class App extends WebSecurityConfigurerAdapter 
 {
   @Autowired
   OAuth2ClientContext oauth2ClientContext;
 
-  @RequestMapping("/user")
-  public Principal user(Principal principal) {
-    return principal;
+  @Bean
+  @ConfigurationProperties("github.client")
+  public AuthorizationCodeResourceDetails github() {
+      return new AuthorizationCodeResourceDetails();
   }
+
+  @Bean
+  @ConfigurationProperties("github.resource")
+  public ResourceServerProperties githubResource() {
+      return new ResourceServerProperties();
+  }
+  
+  @RequestMapping("/user")
+  public String user(Principal principal) {
+    return principal.getName();
+  }
+
   @Override
   protected void configure(HttpSecurity http) throws Exception {
     http
-      .antMatcher("/**")
-      .authorizeRequests()
-        .antMatchers("/", "/login**", "/webjars/**", "/error**")
-        .permitAll()
-      .anyRequest()
-        .authenticated();
+    .antMatcher("/**")
+    .authorizeRequests()
+      .antMatchers("/", "/login**", "/webjars/**", "/error**")
+      .permitAll()
+    .anyRequest()
+      .authenticated()
+      .and().addFilterBefore(ssoFilter(), BasicAuthenticationFilter.class);
+  }
+  
+  private Filter ssoFilter() {
+    CompositeFilter filter = new CompositeFilter();
+    List<Filter> filters = new ArrayList<>();
+
+    OAuth2ClientAuthenticationProcessingFilter githubFilter = new OAuth2ClientAuthenticationProcessingFilter("/login/github");
+    OAuth2RestTemplate githubTemplate = new OAuth2RestTemplate(github(), oauth2ClientContext);
+    githubFilter.setRestTemplate(githubTemplate);
+    UserInfoTokenServices tokenServices = new UserInfoTokenServices(githubResource().getUserInfoUri(), github().getClientId());
+    tokenServices.setRestTemplate(githubTemplate);
+    githubFilter.setTokenServices(tokenServices);
+    filters.add(githubFilter);
+
+    filter.setFilters(filters);
+    return filter;
+  }
+  
+  @Bean
+  public FilterRegistrationBean oauth2ClientFilterRegistration(
+      OAuth2ClientContextFilter filter) {
+    FilterRegistrationBean registration = new FilterRegistrationBean();
+    registration.setFilter(filter);
+    registration.setOrder(-100);
+    return registration;
   }
   
   public static void main(String[] args) {

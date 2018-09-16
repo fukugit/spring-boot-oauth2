@@ -1,1 +1,1 @@
-# spring-boot-oauth2
+Access to /login/github
